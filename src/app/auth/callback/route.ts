@@ -1,13 +1,14 @@
-import { createServerClient } from "@supabase/ssr"
-import { cookies } from "next/headers"
-import { NextRequest, NextResponse } from "next/server"
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import { CookieOptions } from "@supabase/ssr"
 
 export async function GET(request: NextRequest) {
-  const requestUrl = new URL(request.url)
-  const code = requestUrl.searchParams.get("code")
+  const requestUrl = new URL(request.url);
+  const code = requestUrl.searchParams.get("code");
 
   if (code) {
-    const cookieStore = await cookies()
+    const cookieStore = await cookies();
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,35 +16,29 @@ export async function GET(request: NextRequest) {
       {
         cookies: {
           get(name: string) {
-            return cookieStore.get(name)?.value
+            return cookieStore.get(name)?.value;
           },
-          set(name: string, value: string, options: any) {
-            try {
-              cookieStore.set({ name, value, ...options })
-            } catch (e) {
-              console.warn("Could not set cookie on server", e)
-            }
+          set(name: string, value: string, options: CookieOptions) {
+            cookieStore.set({ name, value, ...options });
           },
-          remove(name: string, options: any) {
-            try {
-              cookieStore.set({ name, value: "", ...options })
-            } catch (e) {
-              console.warn("Could not remove cookie on server", e)
-            }
+          remove(name: string, options: CookieOptions) {
+            cookieStore.set({ name, value: "", ...options });
           },
         },
       }
-    )
+    );
 
     try {
       const {
         data: { session },
         error: sessionError,
-      } = await supabase.auth.exchangeCodeForSession(code)
+      } = await supabase.auth.exchangeCodeForSession(code);
 
       if (sessionError) {
-        console.error("Error exchanging code for session:", sessionError)
-        return NextResponse.redirect(`${requestUrl.origin}/login?error=auth_failed`)
+        console.error("Error exchanging code for session:", sessionError);
+        return NextResponse.redirect(
+          `${requestUrl.origin}/login?error=auth_failed`
+        );
       }
 
       if (session?.user) {
@@ -51,28 +46,32 @@ export async function GET(request: NextRequest) {
           .from("users")
           .select("role")
           .eq("id", session.user.id)
-          .single()
+          .single();
 
         if (userError) {
-          console.error("Error fetching user role:", userError)
-          return NextResponse.redirect(`${requestUrl.origin}/login?error=role_fetch_failed`)
+          console.error("Error fetching user role:", userError);
+          return NextResponse.redirect(
+            `${requestUrl.origin}/login?error=role_fetch_failed`
+          );
         }
 
-        const userRole = userData?.role
+        const userRole = userData?.role;
 
         if (userRole?.toLowerCase() === "admin") {
-          return NextResponse.redirect(`${requestUrl.origin}/admin`)
+          return NextResponse.redirect(`${requestUrl.origin}/admin`);
         } else if (userRole?.toLowerCase() === "employee") {
-          return NextResponse.redirect(`${requestUrl.origin}/employee`)
+          return NextResponse.redirect(`${requestUrl.origin}/employee`);
         } else {
-          return NextResponse.redirect(`${requestUrl.origin}/`)
+          return NextResponse.redirect(`${requestUrl.origin}/`);
         }
       }
     } catch (error) {
-      console.error("Error in auth callback:", error)
-      return NextResponse.redirect(`${requestUrl.origin}/login?error=callback_failed`)
+      console.error("Error in auth callback:", error);
+      return NextResponse.redirect(
+        `${requestUrl.origin}/login?error=callback_failed`
+      );
     }
   }
 
-  return NextResponse.redirect(`${requestUrl.origin}/login`)
+  return NextResponse.redirect(`${requestUrl.origin}/login`);
 }
